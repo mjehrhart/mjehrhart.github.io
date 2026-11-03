@@ -7,9 +7,9 @@
    URL here.
 3. The script exchanges the code, lists your energy sites (locally only), and
    saves the refresh token + chosen site id to .tesla-local.json (chmod 600,
-   gitignored), or pushes them straight to GitHub Actions repository secrets
-   and the production environment with --gh-repo OWNER/REPO (or to AWS SSM
-   with --ssm PREFIX). The production value overrides the repository value.
+   gitignored), or pushes them straight to the production environment with
+   --gh-repo OWNER/REPO (or to AWS SSM with --ssm PREFIX). Repository-level
+   Actions secrets are never written.
 
 Env (.env): TESLA_CLIENT_ID, TESLA_CLIENT_SECRET, TESLA_REDIRECT_URI,
             TESLA_API_BASE (optional).
@@ -38,7 +38,7 @@ SCOPES = "openid offline_access energy_device_data"
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--ssm", metavar="PREFIX", help="write refresh_token/energy_site_id to SSM under PREFIX (needs aws CLI)")
-ap.add_argument("--gh-repo", metavar="OWNER/REPO", help="write TESLA_REFRESH_TOKEN/TESLA_SITE_ID as repository secrets and production environment secrets (needs gh CLI, logged in, with Environments and Secrets read-write)")
+ap.add_argument("--gh-repo", metavar="OWNER/REPO", help="write TESLA_REFRESH_TOKEN and TESLA_SITE_ID to the production environment only (needs gh CLI, logged in, with Environments and Secrets read-write)")
 args = ap.parse_args()
 
 state = secrets.token_urlsafe(24)
@@ -83,10 +83,9 @@ idx = int(input("Choose site number [0]: ") or 0) if len(sites) > 1 else 0
 site_id = str(sites[idx]["energy_site_id"])
 
 
-def _gh_secret_set(repo, name, value, env_name=None):
-    cmd = ["gh", "secret", "set", name, "--repo", repo]
-    if env_name:
-        cmd.extend(["--env", env_name])
+def _gh_secret_set(repo, name, value):
+    """Write one production environment secret. Never a repository secret."""
+    cmd = ["gh", "secret", "set", name, "--repo", repo, "--env", "production"]
     env = os.environ.copy()
     env["GH_PROMPT_DISABLED"] = "1"
     # Value goes on stdin, never on the command line. gh strips trailing newlines.
@@ -94,17 +93,21 @@ def _gh_secret_set(repo, name, value, env_name=None):
 
 
 if args.gh_repo:
+    stored = []
     for name, val in (("TESLA_REFRESH_TOKEN", refresh), ("TESLA_SITE_ID", site_id)):
-        _gh_secret_set(args.gh_repo, name, val)
         try:
-            _gh_secret_set(args.gh_repo, name, val, env_name="production")
+            _gh_secret_set(args.gh_repo, name, val)
         except subprocess.CalledProcessError:
+            already = f" Already stored in production: {', '.join(stored)}." if stored else ""
             raise SystemExit(
-                f"Stored {name} as a repository secret, but could not write the production environment secret. "
-                "The production value overrides the repository value, so a spent production token would hide this one. "
-                "Grant this gh login Environments: Read and write, then write the production secret before the next workflow run."
+                f"Could not store {name} in the production environment.{already} "
+                "No repository secret was written. "
+                "Grant this gh login Environments: Read and write and Secrets: Read and write, "
+                "create the production environment (deployment branches: main only), "
+                "then rerun scripts/get_refresh_token.py --gh-repo."
             )
-    print(f"Stored TESLA_REFRESH_TOKEN and TESLA_SITE_ID as repository and production secrets in {args.gh_repo}")
+        stored.append(name)
+    print(f"Stored TESLA_REFRESH_TOKEN and TESLA_SITE_ID in the production environment of {args.gh_repo}")
 elif args.ssm:
     pfx = args.ssm.rstrip("/")
     for name, val in (("refresh_token", refresh), ("energy_site_id", site_id)):
@@ -115,5 +118,5 @@ else:
     out = Path(__file__).resolve().parent.parent / ".tesla-local.json"
     out.write_text(json.dumps({"refresh_token": refresh, "energy_site_id": site_id}))
     out.chmod(stat.S_IRUSR | stat.S_IWUSR)
-    print(f"Saved to {out} (gitignored, mode 600). Store the values as repo secrets (or SSM), then delete the file.")
+    print(f"Saved to {out} (gitignored, mode 600). Store the values as production environment secrets (gh secret set --env production) or in SSM, then delete the file.")
 print("Note: refresh tokens are single-use and rotate on every refresh; the scheduled job stores each new one in the production environment.")

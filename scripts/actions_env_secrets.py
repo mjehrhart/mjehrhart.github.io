@@ -1,26 +1,16 @@
 #!/usr/bin/env python3
-"""Move the build job's Actions secrets into the production environment.
+"""Store the rotated Tesla refresh token in the production environment.
 
-The build job runs with `environment: production`. GitHub resolves
-`${{ secrets.NAME }}` to the environment secret when that name exists, and
-otherwise to the repository secret. This script is the one-time bridge:
-
-  migrate
-      Copy TESLA_CLIENT_ID, TESLA_SITE_ID, TESLA_SITE_TZ, TESLA_API_BASE, and
-      GH_SECRETS_PAT into production when production does not already have
-      that name. Values come from the environment (already resolved by
-      Actions). Empty values are skipped, so an optional secret is not created
-      as a blank override. Never copies TESLA_REFRESH_TOKEN: that value is the
-      one about to be spent, and an environment secret would hide a repository
-      fallback. Runs before the Tesla exchange, so a permissions failure does
-      not rotate the token.
+The build job runs with `environment: production` and reads secrets only from
+that environment. This script does not copy or migrate anything, and it never
+writes a repository-level secret (those are readable by workflows on any branch).
 
   save-refresh-token --file PATH
-      Store the new refresh token in production (`gh secret set --env
-      production`). On failure, store it as a repository secret, then delete
-      production's TESLA_REFRESH_TOKEN if it exists so the spent value cannot
-      take precedence. Exit non-zero whenever the production write failed.
-      The token file is removed either way. Secret values are never printed.
+      Store the new refresh token with `gh secret set --env production`.
+      The write is retried a few times with backoff. If every attempt fails,
+      the run fails: the rotated token was not stored, and the owner must
+      re-authorize with scripts/get_refresh_token.py. The token file is
+      removed either way. Secret values are never printed.
 
 Requires GH_SECRETS_PAT as GH_TOKEN, with Environments and Secrets read-write.
 """
@@ -28,21 +18,30 @@ from __future__ import annotations
 
 import argparse
 import os
-import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 PRODUCTION = "production"
-# Deliberately excludes TESLA_REFRESH_TOKEN. See module docstring.
-COPY_IF_MISSING = (
+# One try plus three retries. The sleeps are the gaps between tries.
+SAVE_ATTEMPTS = 4
+SAVE_BACKOFF_SECONDS = (2, 4, 8)
+# Masked when set. Anything else in the environment stays visible: masking
+# every value turned errors such as "HTTP 403" into "HTTP 4***3".
+# GH_TOKEN is the PAT as exported for gh. The five names are the production
+# secrets the job reads. TESLA_API_BASE is optional. GITHUB_TOKEN is the
+# automatic Actions credential.
+_SECRET_ENV_NAMES = (
+    "GH_TOKEN",
+    "GITHUB_TOKEN",
+    "GH_SECRETS_PAT",
     "TESLA_CLIENT_ID",
+    "TESLA_REFRESH_TOKEN",
     "TESLA_SITE_ID",
     "TESLA_SITE_TZ",
     "TESLA_API_BASE",
-    "GH_SECRETS_PAT",
 )
-_NAME = re.compile(r"[A-Za-z0-9_]+")
 _PAT_HINT = (
     "The PAT (GH_SECRETS_PAT) needs Environments: Read and write and "
     "Secrets: Read and write on this repository."
@@ -54,26 +53,41 @@ class GhError(RuntimeError):
 
 
 def scrub(text: str, secrets: list[str]) -> str:
-    for secret in secrets:
-        if secret:
-            text = text.replace(secret, "***")
+    # Longest first so a shorter secret cannot split a longer one.
+    for secret in sorted({s for s in secrets if s}, key=len, reverse=True):
+        text = text.replace(secret, "***")
     return text
 
 
-def _known_secrets(*extra: bytes | str | None) -> list[str]:
+def _secret_strings(env: dict[str, str], *extra: bytes | str | None) -> list[str]:
+    """Secret values to mask: named env secrets, plus token-file contents."""
     found: list[str] = []
-    for name in ("GH_TOKEN", "GITHUB_TOKEN", *COPY_IF_MISSING, "TESLA_REFRESH_TOKEN"):
-        raw = os.environ.get(name, "")
-        if raw:
+    for name in _SECRET_ENV_NAMES:
+        raw = env.get(name, "")
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        found.append(stripped)
+        if raw != stripped:
             found.append(raw)
     for item in extra:
         if not item:
             continue
         if isinstance(item, bytes):
-            found.append(item.decode("utf-8", "replace"))
+            text = item.decode("utf-8", "replace")
         else:
-            found.append(item)
+            text = item
+        stripped = text.strip()
+        if not stripped:
+            continue
+        found.append(stripped)
+        if text != stripped:
+            found.append(text)
     return found
+
+
+def _sleep(seconds: float) -> None:
+    time.sleep(seconds)
 
 
 def default_runner(args: list[str], stdin: bytes | None) -> tuple[int, bytes, bytes]:
@@ -90,7 +104,6 @@ class Gh:
     def __init__(self, repo: str, runner=None):
         self.repo = repo
         self._run = runner or default_runner
-        self.last_error = ""
 
     def _raw(self, args: list[str], stdin: bytes | None, secrets: list[str]) -> tuple[int, str, str]:
         code, out, err = self._run(args, stdin)
@@ -98,59 +111,14 @@ class Gh:
         err_s = scrub(err.decode("utf-8", "replace"), secrets).strip()
         return code, out_s, err_s
 
-    def list_names(self) -> list[str]:
-        # Names only. stdout is parsed and never printed; a leaked value that
-        # is not a secret name aborts the migration.
-        # --json is required. Without an exporter, gh exits 1 with
-        # "no secrets found" when production has no secrets yet, which is the
-        # first run. That message is treated as an empty list below.
-        code, out, err = self._run(
-            [
-                "gh", "secret", "list",
-                "--env", PRODUCTION,
-                "--repo", self.repo,
-                "--json", "name",
-                "--jq", ".[].name",
-            ],
-            None,
-        )
-        if code != 0:
-            detail = scrub((err or out).decode("utf-8", "replace"), _known_secrets()).strip()
-            if "no secrets found" in detail.lower():
-                return []
-            raise GhError(detail or f"gh secret list exited {code}")
-        names: list[str] = []
-        for line in out.decode("utf-8", "replace").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            if not _NAME.fullmatch(line):
-                raise GhError("unexpected secret list output; refused to continue")
-            names.append(line)
-        return names
-
-    def set_secret(self, name: str, value: bytes, *, environment: str | None) -> None:
-        args = ["gh", "secret", "set", name, "--repo", self.repo]
-        if environment:
-            args.extend(["--env", environment])
-        code, _out, err = self._raw(args, value, _known_secrets(value))
+    def set_secret(self, name: str, value: bytes, *, environment: str) -> None:
+        """Write one secret. Refuses any target other than production."""
+        if environment != PRODUCTION:
+            raise GhError("refusing to write a secret without --env production")
+        args = ["gh", "secret", "set", name, "--repo", self.repo, "--env", environment]
+        code, _out, err = self._raw(args, value, _secret_strings(os.environ, value))
         if code != 0:
             raise GhError(err or f"gh secret set exited {code}")
-
-    def delete_env_secret(self, name: str) -> str:
-        """Return 'deleted', 'absent', or 'failed'. Does not print values."""
-        code, out, err = self._raw(
-            ["gh", "secret", "delete", name, "--repo", self.repo, "--env", PRODUCTION],
-            None,
-            _known_secrets(),
-        )
-        self.last_error = err or out
-        if code == 0:
-            return "deleted"
-        lowered = self.last_error.lower()
-        if "404" in lowered or "not found" in lowered:
-            return "absent"
-        return "failed"
 
 
 def _repo() -> str:
@@ -164,56 +132,7 @@ def _repo() -> str:
 def _print_detail(exc: BaseException, err, secrets: list[str]) -> None:
     detail = scrub(str(exc), secrets).strip()
     if detail:
-        print(detail, file=err)
-
-
-def _secret_strings(env: dict[str, str], *extra: bytes | str | None) -> list[str]:
-    values = [v for v in env.values() if v]
-    values.extend(_known_secrets(*extra))
-    return values
-
-
-def migrate(gh: Gh, env: dict[str, str], out, err) -> int:
-    """Copy static secrets that production does not have yet. Return 0 or 1."""
-    secrets = _secret_strings(env)
-    try:
-        existing = set(gh.list_names())
-    except GhError as exc:
-        print("ERROR: could not list secrets in the production environment.", file=err)
-        print(
-            "Create the production environment first (deployment branches: main only; "
-            "no required reviewers or wait timer).",
-            file=err,
-        )
-        print(_PAT_HINT, file=err)
-        print("The Tesla refresh token was not exchanged.", file=err)
-        _print_detail(exc, err, secrets)
-        return 1
-
-    if env.get("TESLA_REFRESH_TOKEN", "").strip():
-        print(
-            "TESLA_REFRESH_TOKEN: not copied; the rotation step stores the new token in production",
-            file=out,
-        )
-
-    for name in COPY_IF_MISSING:
-        if name in existing:
-            print(f"{name}: already in production", file=out)
-            continue
-        value = env.get(name, "")
-        if not value.strip():
-            print(f"{name}: not set; left unset in production", file=out)
-            continue
-        try:
-            gh.set_secret(name, value.encode(), environment=PRODUCTION)
-        except GhError as exc:
-            print(f"ERROR: failed to copy {name} to the production environment.", file=err)
-            print(_PAT_HINT, file=err)
-            print("The Tesla refresh token was not exchanged.", file=err)
-            _print_detail(exc, err, _secret_strings(env, value))
-            return 1
-        print(f"{name}: copied to production", file=out)
-    return 0
+        print(detail, file=err, flush=True)
 
 
 def _unlink(path: str) -> None:
@@ -223,7 +142,7 @@ def _unlink(path: str) -> None:
         pass
 
 
-def save_refresh_token(gh: Gh, path: str, out, err) -> int:
+def save_refresh_token(gh: Gh, path: str, out, err, sleep=None) -> int:
     """Store the rotated token in production. Always tries to remove `path`."""
     try:
         data = Path(path).read_bytes()
@@ -238,79 +157,71 @@ def save_refresh_token(gh: Gh, path: str, out, err) -> int:
                 file=err,
             )
             return 1
-        return _save_refresh_bytes(gh, data, out, err)
+        return _save_refresh_bytes(gh, data, out, err, sleep=sleep)
     finally:
         _unlink(path)
 
 
-def _save_refresh_bytes(gh: Gh, data: bytes, out, err) -> int:
-    try:
-        gh.set_secret("TESLA_REFRESH_TOKEN", data, environment=PRODUCTION)
-    except GhError as exc:
-        print("ERROR: failed to save the rotated TESLA_REFRESH_TOKEN to the production environment.", file=err)
-        print(_PAT_HINT, file=err)
-        _print_detail(exc, err, _known_secrets(data))
-        return _fallback_repo(gh, data, err)
-    print("saved rotated TESLA_REFRESH_TOKEN to the production environment", file=out)
-    return 0
-
-
-def _fallback_repo(gh: Gh, data: bytes, err) -> int:
-    try:
-        gh.set_secret("TESLA_REFRESH_TOKEN", data, environment=None)
-    except GhError as exc:
-        print("ERROR: also failed to save the rotated TESLA_REFRESH_TOKEN as a repository secret.", file=err)
-        print("The rotated token was not stored.", file=err)
-        print(
-            "Re-authorize with scripts/get_refresh_token.py and store the new token in the "
-            "production environment (that value overrides the repository secret).",
-            file=err,
-        )
-        _print_detail(exc, err, _known_secrets(data))
-        return 1
-
-    print("Fallback: saved the rotated TESLA_REFRESH_TOKEN as a repository secret.", file=err)
-    # Only after the fallback is stored. Deleting earlier could drop the only copy.
-    removed = gh.delete_env_secret("TESLA_REFRESH_TOKEN")
-    if removed == "deleted":
-        print(
-            "Removed the production TESLA_REFRESH_TOKEN so the next run reads the repository secret.",
-            file=err,
-        )
-    elif removed == "absent":
-        print(
-            "No production TESLA_REFRESH_TOKEN to remove; the next run reads the repository secret.",
-            file=err,
-        )
-    else:
-        print("ERROR: could not remove the production TESLA_REFRESH_TOKEN.", file=err)
-        print(
-            "If that secret exists, it still holds the refresh token this run just spent, "
-            "and it overrides the repository secret.",
-            file=err,
-        )
-        print(
-            "Delete the production environment secret named TESLA_REFRESH_TOKEN, then rerun. "
-            "The repository secret has the new token.",
-            file=err,
-        )
-        detail = scrub(getattr(gh, "last_error", ""), _known_secrets(data)).strip()
-        if detail:
-            print(detail, file=err)
-    print("Failing this run so the fallback is visible. The next run can still refresh.", file=err)
+def _save_refresh_bytes(gh: Gh, data: bytes, out, err, sleep=None) -> int:
+    pause = _sleep if sleep is None else sleep
+    secrets = _secret_strings(os.environ, data)
+    last = ""
+    for attempt in range(1, SAVE_ATTEMPTS + 1):
+        try:
+            gh.set_secret("TESLA_REFRESH_TOKEN", data, environment=PRODUCTION)
+        except GhError as exc:
+            last = scrub(str(exc), secrets).strip()
+            if attempt == SAVE_ATTEMPTS:
+                break
+            delay = SAVE_BACKOFF_SECONDS[attempt - 1]
+            print(
+                f"production write failed (attempt {attempt} of {SAVE_ATTEMPTS}); "
+                f"retrying in {delay}s.",
+                file=err,
+                flush=True,
+            )
+            if last:
+                print(last, file=err, flush=True)
+            pause(delay)
+        else:
+            print("saved rotated TESLA_REFRESH_TOKEN to the production environment", file=out)
+            return 0
+    print(
+        "ERROR: the rotated TESLA_REFRESH_TOKEN could not be saved to the production environment "
+        f"after {SAVE_ATTEMPTS} attempts.",
+        file=err,
+        flush=True,
+    )
+    print(
+        "The rotated token was not stored. The refresh token this run already used is spent.",
+        file=err,
+        flush=True,
+    )
+    print(
+        "Re-authorize with scripts/get_refresh_token.py and store the new token "
+        "in the production environment.",
+        file=err,
+        flush=True,
+    )
+    print("No repository secret was written.", file=err, flush=True)
+    print(_PAT_HINT, file=err, flush=True)
+    if last:
+        _print_detail(GhError(last), err, secrets)
     return 1
 
 
 def main(argv: list[str] | None = None, runner=None) -> int:
-    parser = argparse.ArgumentParser(description="Publish Actions secrets to the production environment.")
+    parser = argparse.ArgumentParser(
+        description="Store the rotated Tesla refresh token in the production environment."
+    )
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("migrate")
-    save = sub.add_parser("save-refresh-token")
+    save = sub.add_parser(
+        "save-refresh-token",
+        help="write TESLA_REFRESH_TOKEN with --env production",
+    )
     save.add_argument("--file", required=True)
     args = parser.parse_args(argv)
     gh = Gh(_repo(), runner=runner)
-    if args.cmd == "migrate":
-        return migrate(gh, os.environ, sys.stdout, sys.stderr)
     return save_refresh_token(gh, args.file, sys.stdout, sys.stderr)
 
 
