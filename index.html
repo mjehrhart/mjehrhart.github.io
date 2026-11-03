@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Home Energy Dashboard</title>
+<link rel="stylesheet" href="styles.css">
+<script src="vendor/chart.umd.min.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <h1>Home Energy Dashboard</h1>
+  <div class="updated">
+    <span id="updated">Loading…</span>
+    <span id="stale" class="badge warn" hidden>Stale</span>
+  </div>
+</header>
+<div id="example" class="banner" hidden>Example data: this page is showing sample numbers, not a real home.</div>
+<div id="error" class="banner err" hidden></div>
+<main>
+  <section class="kpis">
+    <article class="card solar"><h2>Solar</h2><p class="big" id="k-solar">–</p><p class="sub" id="k-solar-sub">–</p></article>
+    <article class="card battery"><h2>Powerwall</h2><p class="big" id="k-batt">–</p><p class="sub" id="k-batt-sub">–</p></article>
+    <article class="card home"><h2>Home</h2><p class="big" id="k-home">–</p><p class="sub" id="k-home-sub">–</p></article>
+    <article class="card grid"><h2>Grid</h2><p class="big" id="k-grid">–</p><p class="sub" id="k-grid-sub">–</p></article>
+  </section>
+  <section class="panel">
+    <h2>Today <small>(average power per interval)</small></h2>
+    <div class="chart tall"><canvas id="c-day" aria-label="Today's energy flows chart" role="img"></canvas></div>
+  </section>
+  <section class="panel">
+    <h2>Powerwall charge today</h2>
+    <div class="chart short"><canvas id="c-batt" aria-label="Battery charge percentage chart" role="img"></canvas></div>
+  </section>
+  <section class="panel">
+    <h2>Last 7 days <small>(kWh per day)</small></h2>
+    <div class="chart tall"><canvas id="c-week" aria-label="Weekly energy chart" role="img"></canvas></div>
+  </section>
+</main>
+<footer>Snapshot refreshed periodically · times shown in your browser's local time</footer>
+</body>
+</html>

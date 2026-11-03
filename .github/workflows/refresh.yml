@@ -1,0 +1,90 @@
+# Refresh the anonymous energy snapshot and deploy the site to GitHub Pages.
+# Requires: Settings > Pages > Build and deployment > Source = "GitHub Actions".
+# Secrets (Settings > Secrets and variables > Actions): TESLA_CLIENT_ID,
+# TESLA_REFRESH_TOKEN, TESLA_SITE_ID, TESLA_SITE_TZ, GH_SECRETS_PAT, TESLA_API_BASE (optional).
+name: Refresh energy snapshot
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # best effort: GitHub may delay or drop scheduled runs at busy times
+  workflow_dispatch:
+  push:
+    branches: [main]          # change if your default branch is named differently
+    paths-ignore:
+      - "README.md"
+      - "scripts/make_example_data.py"
+
+# Only one run at a time, and never cancel a run mid-way: the refresh token is
+# single-use, so a cancelled run could lose the rotated token.
+concurrency:
+  group: energy-refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Refresh Tesla access token
+        env:
+          TESLA_CLIENT_ID: ${{ secrets.TESLA_CLIENT_ID }}
+          TESLA_REFRESH_TOKEN: ${{ secrets.TESLA_REFRESH_TOKEN }}
+        run: python3 scripts/refresh.py token --out-dir "$RUNNER_TEMP/tesla"
+
+      # Must run right after the refresh: the old refresh token is now used up.
+      - name: Save rotated refresh token
+        env:
+          GH_TOKEN: ${{ secrets.GH_SECRETS_PAT }}
+        run: |
+          gh secret set TESLA_REFRESH_TOKEN --repo "$GITHUB_REPOSITORY" < "$RUNNER_TEMP/tesla/refresh_token"
+          rm -f "$RUNNER_TEMP/tesla/refresh_token"
+
+      - name: Get previous snapshot (for today's battery trail)
+        run: curl -fsS --max-time 15 "https://${GITHUB_REPOSITORY_OWNER}.github.io/data.json" -o "$RUNNER_TEMP/prev.json" || echo "no previous snapshot"
+
+      - name: Assemble site (public files only)
+        run: |
+          mkdir -p _site
+          cp -r index.html app.js styles.css data.json vendor callback .well-known .nojekyll _site/
+          test -s _site/.well-known/appspecific/com.tesla.3p.public-key.pem
+
+      - name: Fetch and sanitize snapshot
+        env:
+          TESLA_SITE_ID: ${{ secrets.TESLA_SITE_ID }}
+          TESLA_SITE_TZ: ${{ secrets.TESLA_SITE_TZ }}
+          TESLA_API_BASE: ${{ secrets.TESLA_API_BASE }}
+        run: python3 scripts/refresh.py fetch --token-dir "$RUNNER_TEMP/tesla" --previous "$RUNNER_TEMP/prev.json" --out _site/data.json
+
+      - name: Verify public data (allowlist)
+        run: python3 scripts/verify_public_data.py _site/data.json
+
+      - name: Remove token files
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/tesla"
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+          include-hidden-files: true   # needed so .well-known/ is published
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
