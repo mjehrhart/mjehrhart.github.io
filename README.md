@@ -7,7 +7,7 @@ An open tab re-fetches that file every 5 minutes while it is visible, and again 
 
 ```
 GitHub Actions (cron 7,37 * * * *, best effort)
-  -> refresh Tesla token -> IMMEDIATELY save rotated token (gh secret set, fine-grained PAT)
+  -> refresh Tesla token -> IMMEDIATELY save rotated token to the production environment (gh secret set --env production, fine-grained PAT)
   -> live_status + calendar_history (kind=energy) -> ALLOWLIST sanitize + validate
   -> _site/ (public files only) -> upload-pages-artifact -> deploy-pages -> https://<user>.github.io/
 ```
@@ -35,6 +35,7 @@ The `<user>.github.io` URL itself contains your GitHub username. That is the onl
 | `.nojekyll` | keep (harmless with Actions deploys; needed if you ever go back to branch deploys) |
 | `.github/workflows/refresh.yml` | refresh + deploy at :07 and :37, on push to `main`, and on manual run |
 | `scripts/refresh.py` | the Actions fetcher (`token` and `fetch` sub-commands) |
+| `scripts/actions_env_secrets.py` | copy missing Actions secrets into the `production` environment; save the rotated refresh token there |
 | `scripts/powerwall_core.py` | Fleet API calls + aggregation into the public shape |
 | `scripts/public_schema.py` | allowlist validator (keys, formats, value ranges, list sizes) |
 | `scripts/partner_register.py`, `scripts/get_refresh_token.py` | one-time Tesla setup, run locally |
@@ -70,11 +71,11 @@ Your Tesla app's allowed origin and the registered partner domain must be the do
     A `412` error later means this step is missing. A `421` means the wrong region (`TESLA_API_BASE`).
 
 ### 3. Create the fine-grained PAT (`GH_SECRETS_PAT`)
-`GITHUB_TOKEN` can't write repository secrets, so the workflow needs a narrow PAT to save the rotated refresh token.
+`GITHUB_TOKEN` can't write Actions secrets, so the workflow needs a narrow PAT to save the rotated refresh token.
 GitHub → your avatar → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**:
 - Name: `pages-secret-rotation`. Expiration: up to 1 year (set a reminder to renew it).
 - Resource owner: you. **Repository access: Only select repositories → `mjehrhart.github.io`**.
-- **Repository permissions → Secrets: Read and write**. Leave everything else at No access (Metadata: read-only is added automatically).
+- **Repository permissions → Secrets: Read and write, and Environments: Read and write**. Leave everything else at No access (Metadata: read-only is added automatically). Environment secrets are a separate permission from repository secrets; the workflow needs both.
 - Generate the token, then store it without it touching your screen history: run `gh secret set GH_SECRETS_PAT --repo mjehrhart/mjehrhart.github.io`
   and paste the token at the hidden prompt. Don't keep the token anywhere else.
 
@@ -107,6 +108,8 @@ gh secret set TESLA_SITE_TZ  --repo mjehrhart/mjehrhart.github.io              #
 | `TESLA_API_BASE` | no | `https://fleet-api.prd.eu.vn.cloud.tesla.com` for EU; default NA |
 | `GH_SECRETS_PAT` | yes | the fine-grained PAT from step 3 |
 
+The build job runs in a GitHub Actions environment named `production`. Create that environment before the first run (**Settings → Environments**), limit **Deployment branches** to `main` only, and do not add required reviewers or a wait timer (either stalls the schedule before the job starts). The job reads an environment secret when that name exists, and otherwise the repository secret. After one successful run, check that `production` has every secret in the table (include `TESLA_API_BASE` only if you set it), then delete the repository-level copies. The PAT needs **Environments: Read and write** and **Secrets: Read and write**. The repository `TESLA_REFRESH_TOKEN` is the spent token after that first successful run; the production value is the one that matters, and it overrides the repository value.
+
 ### 5. Switch Pages to Actions deploys
 Repo → **Settings → Pages → Build and deployment → Source: GitHub Actions**. (The old "Deploy from a branch" build stops.
 The site keeps serving the last deployment until the first workflow run replaces it.)
@@ -120,12 +123,12 @@ After that, runs are at 7 and 37 minutes past each hour.
 - **Deploy method: `actions/deploy-pages` (no commits).** A push made with `GITHUB_TOKEN` does *not* trigger the classic
   "pages build and deployment", so committing `data.json` would need a PAT with `contents: write`, and would add
   ~48 commits/day (~17k/year) of energy history to a public repo. Instead, the workflow assembles `_site/` and deploys it as
-  a Pages artifact. That means no commit churn and no data in git history. Deploys are atomic, and only the PAT's
-  *Secrets* permission is needed.
+  a Pages artifact. That means no commit churn and no data in git history. Deploys are atomic. The PAT needs
+  *Secrets* and *Environments* read-write, and nothing else.
   `include-hidden-files: true` is set so `.well-known/` is published.
-- **Token rotation:** the refresh happens first. The new token is written back with `gh secret set` immediately, before any
-  data call. If that write fails, the job stops and nothing deploys. Fix the PAT soon: the previous token keeps working for
-  only about 24 h. If it lapses, rerun `get_refresh_token.py --gh-repo …`.
+- **Token rotation:** missing static secrets are copied into `production` before the Tesla exchange, so a permissions error does not spend the refresh token. The spent refresh token is never copied. The exchange runs next, and the new token is written to the `production` environment with `gh secret set --env production` immediately, before any
+  data call. If that write fails, the job writes the repository secret, removes a production `TESLA_REFRESH_TOKEN` that would take precedence, and fails the run so the fallback is visible. If that repository write also fails, the rotated token was not stored. Fix the PAT soon: the previous token keeps working for
+  only about 24 h. If it lapses, rerun `get_refresh_token.py --gh-repo …` (it stores the repository secret and the production secret; the production value wins).
 - **Never in logs:** tokens are `::add-mask::`ed as soon as they exist and kept in mode-600 files under `$RUNNER_TEMP`, which are
   deleted at the end. The scripts print only counts and Tesla error codes. Secrets are passed only to the steps that need them.
 - **Concurrency:** there is one group with `cancel-in-progress: false`, so runs queue instead of racing or being cancelled mid-rotation.
@@ -147,10 +150,11 @@ After that, runs are at 7 and 37 minutes past each hour.
    the address bar, is single-use, and expires within minutes.
 
 ## Revoking access
-Delete the repo secrets and revoke the app at tesla.com/teslaaccount/account-settings (Third Party Apps), or rotate the client secret. Delete the PAT.
+Delete the repository secrets and the `production` environment secrets, and revoke the app at tesla.com/teslaaccount/account-settings (Third Party Apps), or rotate the client secret. Delete the PAT.
 
 ## Local checks
 ```
 python3 scripts/verify_public_data.py && python3 scripts/scan_repo.py
+python3 -m unittest scripts/test_actions_env_secrets.py
 python3 scripts/make_example_data.py     # regenerate example data.json
 ```
