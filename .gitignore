@@ -1,7 +1,13 @@
 .env
+.env.*
+!.env.example
 .tesla-local.json
 *private*.pem
+*.pem
+!.well-known/appspecific/com.tesla.3p.public-key.pem
 *.key
 _site/
 __pycache__/
 *.zip
+node_modules/
+.DS_Store
