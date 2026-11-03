@@ -3,10 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-rMRR8Wh+fW7T2/lwuc+L3YpkU6y+dSYLcjoenCH5U88='; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <title>Home Energy Dashboard</title>
+<!-- Local clock only, before CSS: light 06:30-18:30. Same window as app.js. No location. -->
+<script>(function(){var q;try{q=new URLSearchParams(location.search).get("theme")}catch(e){}var now=new Date(),m=now.getHours()*60+now.getMinutes();var t=(q==="light"||q==="dark")?q:(m>=390&&m<1110?"light":"dark");document.documentElement.setAttribute("data-theme",t)})();</script>
 <link rel="stylesheet" href="styles.css">
 <script src="vendor/chart.umd.min.js" defer></script>
 <script src="app.js" defer></script>
