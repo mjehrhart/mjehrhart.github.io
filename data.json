@@ -1,0 +1,781 @@
+{
+ "schema": 1,
+ "example": true,
+ "generated_at": "2026-11-03T15:30:00Z",
+ "live": {
+  "solar_w": 4938,
+  "home_w": 534,
+  "battery_w": -960,
+  "grid_w": -3444,
+  "battery_pct": 74.2,
+  "grid_online": true
+ },
+ "day": {
+  "date": "2026-11-03",
+  "points": [
+   {
+    "t": "00:00",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 113
+   },
+   {
+    "t": "00:15",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 113
+   },
+   {
+    "t": "00:30",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 113
+   },
+   {
+    "t": "00:45",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 113
+   },
+   {
+    "t": "01:00",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 113
+   },
+   {
+    "t": "01:15",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 113
+   },
+   {
+    "t": "01:30",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 113
+   },
+   {
+    "t": "01:45",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 113
+   },
+   {
+    "t": "02:00",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 113
+   },
+   {
+    "t": "02:15",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 113
+   },
+   {
+    "t": "02:30",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 113
+   },
+   {
+    "t": "02:45",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 113
+   },
+   {
+    "t": "03:00",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 113,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "03:15",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 113,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "03:30",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 113,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "03:45",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 113,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "04:00",
+    "solar_wh": 0,
+    "home_wh": 113,
+    "grid_import_wh": 113,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "04:15",
+    "solar_wh": 0,
+    "home_wh": 114,
+    "grid_import_wh": 114,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "04:30",
+    "solar_wh": 0,
+    "home_wh": 115,
+    "grid_import_wh": 115,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "04:45",
+    "solar_wh": 0,
+    "home_wh": 118,
+    "grid_import_wh": 118,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "05:00",
+    "solar_wh": 0,
+    "home_wh": 122,
+    "grid_import_wh": 122,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "05:15",
+    "solar_wh": 0,
+    "home_wh": 130,
+    "grid_import_wh": 130,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "05:30",
+    "solar_wh": 0,
+    "home_wh": 143,
+    "grid_import_wh": 143,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "05:45",
+    "solar_wh": 0,
+    "home_wh": 161,
+    "grid_import_wh": 161,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "06:00",
+    "solar_wh": 0,
+    "home_wh": 186,
+    "grid_import_wh": 186,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "06:15",
+    "solar_wh": 0,
+    "home_wh": 216,
+    "grid_import_wh": 216,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "06:30",
+    "solar_wh": 0,
+    "home_wh": 249,
+    "grid_import_wh": 249,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "06:45",
+    "solar_wh": 91,
+    "home_wh": 282,
+    "grid_import_wh": 192,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "07:00",
+    "solar_wh": 181,
+    "home_wh": 311,
+    "grid_import_wh": 130,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "07:15",
+    "solar_wh": 270,
+    "home_wh": 331,
+    "grid_import_wh": 60,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 0,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "07:30",
+    "solar_wh": 359,
+    "home_wh": 338,
+    "grid_import_wh": 0,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 21,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "07:45",
+    "solar_wh": 446,
+    "home_wh": 331,
+    "grid_import_wh": 0,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 116,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "08:00",
+    "solar_wh": 532,
+    "home_wh": 311,
+    "grid_import_wh": 0,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 221,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "08:15",
+    "solar_wh": 616,
+    "home_wh": 282,
+    "grid_import_wh": 0,
+    "grid_export_wh": 93,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "08:30",
+    "solar_wh": 697,
+    "home_wh": 249,
+    "grid_import_wh": 0,
+    "grid_export_wh": 208,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "08:45",
+    "solar_wh": 776,
+    "home_wh": 216,
+    "grid_import_wh": 0,
+    "grid_export_wh": 320,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "09:00",
+    "solar_wh": 852,
+    "home_wh": 186,
+    "grid_import_wh": 0,
+    "grid_export_wh": 427,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "09:15",
+    "solar_wh": 925,
+    "home_wh": 161,
+    "grid_import_wh": 0,
+    "grid_export_wh": 524,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "09:30",
+    "solar_wh": 995,
+    "home_wh": 143,
+    "grid_import_wh": 0,
+    "grid_export_wh": 612,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "09:45",
+    "solar_wh": 1061,
+    "home_wh": 130,
+    "grid_import_wh": 0,
+    "grid_export_wh": 690,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "10:00",
+    "solar_wh": 1123,
+    "home_wh": 122,
+    "grid_import_wh": 0,
+    "grid_export_wh": 760,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "10:15",
+    "solar_wh": 1181,
+    "home_wh": 118,
+    "grid_import_wh": 0,
+    "grid_export_wh": 823,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "10:30",
+    "solar_wh": 1234,
+    "home_wh": 115,
+    "grid_import_wh": 0,
+    "grid_export_wh": 879,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "10:45",
+    "solar_wh": 1284,
+    "home_wh": 114,
+    "grid_import_wh": 0,
+    "grid_export_wh": 930,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "11:00",
+    "solar_wh": 1328,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 975,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "11:15",
+    "solar_wh": 1368,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 1015,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "11:30",
+    "solar_wh": 1403,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 1050,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "11:45",
+    "solar_wh": 1432,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 1080,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "12:00",
+    "solar_wh": 1456,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 1104,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "12:15",
+    "solar_wh": 1475,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 1123,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "12:30",
+    "solar_wh": 1489,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 1137,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "12:45",
+    "solar_wh": 1497,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 1145,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "13:00",
+    "solar_wh": 1500,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 1147,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "13:15",
+    "solar_wh": 1497,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 1145,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "13:30",
+    "solar_wh": 1489,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 1136,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "13:45",
+    "solar_wh": 1475,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 1122,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "14:00",
+    "solar_wh": 1456,
+    "home_wh": 113,
+    "grid_import_wh": 0,
+    "grid_export_wh": 1103,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "14:15",
+    "solar_wh": 1432,
+    "home_wh": 114,
+    "grid_import_wh": 0,
+    "grid_export_wh": 1078,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "14:30",
+    "solar_wh": 1403,
+    "home_wh": 115,
+    "grid_import_wh": 0,
+    "grid_export_wh": 1047,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "14:45",
+    "solar_wh": 1368,
+    "home_wh": 117,
+    "grid_import_wh": 0,
+    "grid_export_wh": 1010,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "15:00",
+    "solar_wh": 1328,
+    "home_wh": 121,
+    "grid_import_wh": 0,
+    "grid_export_wh": 967,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   },
+   {
+    "t": "15:15",
+    "solar_wh": 1284,
+    "home_wh": 126,
+    "grid_import_wh": 0,
+    "grid_export_wh": 918,
+    "battery_charge_wh": 240,
+    "battery_discharge_wh": 0
+   }
+  ],
+  "totals": {
+   "solar_wh": 38303,
+   "home_wh": 9277,
+   "grid_import_wh": 2501,
+   "grid_export_wh": 25568,
+   "battery_charge_wh": 7318,
+   "battery_discharge_wh": 1356
+  },
+  "battery_pct_trail": [
+   {
+    "t": "00:00",
+    "pct": 29.2
+   },
+   {
+    "t": "00:30",
+    "pct": 27.5
+   },
+   {
+    "t": "01:00",
+    "pct": 25.8
+   },
+   {
+    "t": "01:30",
+    "pct": 24.2
+   },
+   {
+    "t": "02:00",
+    "pct": 22.5
+   },
+   {
+    "t": "02:30",
+    "pct": 20.8
+   },
+   {
+    "t": "03:00",
+    "pct": 20.0
+   },
+   {
+    "t": "03:30",
+    "pct": 20.0
+   },
+   {
+    "t": "04:00",
+    "pct": 20.0
+   },
+   {
+    "t": "04:30",
+    "pct": 20.0
+   },
+   {
+    "t": "05:00",
+    "pct": 20.0
+   },
+   {
+    "t": "05:30",
+    "pct": 20.0
+   },
+   {
+    "t": "06:00",
+    "pct": 20.0
+   },
+   {
+    "t": "06:30",
+    "pct": 20.0
+   },
+   {
+    "t": "07:00",
+    "pct": 20.0
+   },
+   {
+    "t": "07:30",
+    "pct": 20.2
+   },
+   {
+    "t": "08:00",
+    "pct": 22.7
+   },
+   {
+    "t": "08:30",
+    "pct": 26.2
+   },
+   {
+    "t": "09:00",
+    "pct": 29.8
+   },
+   {
+    "t": "09:30",
+    "pct": 33.3
+   },
+   {
+    "t": "10:00",
+    "pct": 36.9
+   },
+   {
+    "t": "10:30",
+    "pct": 40.4
+   },
+   {
+    "t": "11:00",
+    "pct": 44.0
+   },
+   {
+    "t": "11:30",
+    "pct": 47.5
+   },
+   {
+    "t": "12:00",
+    "pct": 51.1
+   },
+   {
+    "t": "12:30",
+    "pct": 54.7
+   },
+   {
+    "t": "13:00",
+    "pct": 58.2
+   },
+   {
+    "t": "13:30",
+    "pct": 61.8
+   },
+   {
+    "t": "14:00",
+    "pct": 65.3
+   },
+   {
+    "t": "14:30",
+    "pct": 68.9
+   },
+   {
+    "t": "15:00",
+    "pct": 72.4
+   },
+   {
+    "t": "15:30",
+    "pct": 74.2
+   }
+  ]
+ },
+ "week": {
+  "days": [
+   {
+    "d": "2026-10-28",
+    "solar_wh": 28880,
+    "home_wh": 24000,
+    "grid_import_wh": 8116,
+    "grid_export_wh": 9080,
+    "battery_charge_wh": 7220,
+    "battery_discharge_wh": 6840
+   },
+   {
+    "d": "2026-10-29",
+    "solar_wh": 38000,
+    "home_wh": 29000,
+    "grid_import_wh": 8100,
+    "grid_export_wh": 15950,
+    "battery_charge_wh": 9500,
+    "battery_discharge_wh": 9000
+   },
+   {
+    "d": "2026-10-30",
+    "solar_wh": 24320,
+    "home_wh": 26500,
+    "grid_import_wh": 13124,
+    "grid_export_wh": 3395,
+    "battery_charge_wh": 6080,
+    "battery_discharge_wh": 5760
+   },
+   {
+    "d": "2026-10-31",
+    "solar_wh": 33440,
+    "home_wh": 24000,
+    "grid_import_wh": 5608,
+    "grid_export_wh": 13640,
+    "battery_charge_wh": 8360,
+    "battery_discharge_wh": 7920
+   },
+   {
+    "d": "2026-11-01",
+    "solar_wh": 19760,
+    "home_wh": 29000,
+    "grid_import_wh": 18132,
+    "grid_export_wh": 0,
+    "battery_charge_wh": 4940,
+    "battery_discharge_wh": 4680
+   },
+   {
+    "d": "2026-11-02",
+    "solar_wh": 28880,
+    "home_wh": 26500,
+    "grid_import_wh": 10616,
+    "grid_export_wh": 7955,
+    "battery_charge_wh": 7220,
+    "battery_discharge_wh": 6840
+   },
+   {
+    "d": "2026-11-03",
+    "solar_wh": 38303,
+    "home_wh": 9264,
+    "grid_import_wh": 2499,
+    "grid_export_wh": 25570,
+    "battery_charge_wh": 7318,
+    "battery_discharge_wh": 1350
+   }
+  ]
+ }
+}
