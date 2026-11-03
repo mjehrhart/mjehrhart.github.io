@@ -1,7 +1,8 @@
 /* Home Energy Dashboard: renders the sanitized public snapshot in data.json.
-   No third-party requests, no cookies, no identifiers. */
+   Re-reads that file while the tab is visible. No third-party requests, no cookies, no identifiers. */
 "use strict";
 const STALE_MS = 2 * 60 * 60 * 1000;
+const REFRESH_MS = 5 * 60 * 1000;
 const C = { solar: "#f5b301", home: "#4aa3ff", batt: "#3ccf8e", imp: "#ff6b6b", exp: "#b48cff", grid: "#2a3542", text: "#8b98a5" };
 const $ = (id) => document.getElementById(id);
 const kw = (w) => (w == null ? "–" : (Math.abs(w) / 1000).toFixed(Math.abs(w) < 10000 ? 2 : 1) + " kW");
@@ -37,6 +38,19 @@ function baseOpts(yTitle) {
 
 function minutes(t) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
 
+function mountChart(id, config) {
+  const canvas = $(id);
+  const prev = Chart.getChart(canvas);
+  if (prev && prev.config.type === config.type) {
+    prev.data.labels = config.data.labels;
+    prev.data.datasets = config.data.datasets;
+    prev.update("none");
+    return prev;
+  }
+  if (prev) prev.destroy();
+  return new Chart(canvas, config);
+}
+
 function dayChart(d) {
   const pts = (d.day && d.day.points) || [];
   let step = 60;
@@ -45,7 +59,7 @@ function dayChart(d) {
   const ds = (label, key, color, sign = 1) => ({ label, data: pts.map((p) => (p[key] == null ? null : sign * toKw(p[key]))), borderColor: color, backgroundColor: color + "33", fill: false, pointRadius: 0, borderWidth: 2, tension: 0.3, spanGaps: true });
   const o = baseOpts("kW");
   o.plugins.tooltip = { callbacks: { label: (c) => `${c.dataset.label}: ${Math.abs(c.parsed.y).toFixed(2)} kW` } };
-  new Chart($("c-day"), { type: "line", data: { labels: pts.map((p) => p.t), datasets: [
+  mountChart("c-day", { type: "line", data: { labels: pts.map((p) => p.t), datasets: [
     ds("Solar", "solar_wh", C.solar), ds("Home", "home_wh", C.home),
     ds("Grid import", "grid_import_wh", C.imp), ds("Grid export", "grid_export_wh", C.exp, -1),
   ] }, options: o });
@@ -54,32 +68,54 @@ function dayChart(d) {
 function battChart(d) {
   const tr = (d.day && d.day.battery_pct_trail) || [];
   const o = baseOpts("%"); o.scales.y.min = 0; o.scales.y.max = 100; o.plugins.legend.display = false;
-  new Chart($("c-batt"), { type: "line", data: { labels: tr.map((p) => p.t), datasets: [{ label: "Charge", data: tr.map((p) => p.pct), borderColor: C.batt, backgroundColor: C.batt + "26", fill: true, pointRadius: 0, borderWidth: 2, tension: 0.3 }] }, options: o });
+  mountChart("c-batt", { type: "line", data: { labels: tr.map((p) => p.t), datasets: [{ label: "Charge", data: tr.map((p) => p.pct), borderColor: C.batt, backgroundColor: C.batt + "26", fill: true, pointRadius: 0, borderWidth: 2, tension: 0.3 }] }, options: o });
 }
 
 function weekChart(d) {
   const days = (d.week && d.week.days) || [];
   const ds = (label, key, color) => ({ label, data: days.map((x) => (x[key] == null ? null : +(x[key] / 1000).toFixed(1))), backgroundColor: color, borderRadius: 3 });
-  new Chart($("c-week"), { type: "bar", data: { labels: days.map((x) => fmtDate(x.d)), datasets: [
+  mountChart("c-week", { type: "bar", data: { labels: days.map((x) => fmtDate(x.d)), datasets: [
     ds("Solar", "solar_wh", C.solar), ds("Home", "home_wh", C.home), ds("Grid import", "grid_import_wh", C.imp), ds("Grid export", "grid_export_wh", C.exp),
   ] }, options: baseOpts("kWh") });
 }
 
-async function main() {
+let hasSnapshot = false;
+let loading = false;
+
+function showSnapshot(d) {
+  const ts = new Date(d.generated_at);
+  $("updated").textContent = "Last updated " + ts.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  $("example").hidden = !d.example;
+  const age = Date.now() - ts.getTime();
+  $("stale").hidden = !!d.example || !(age > STALE_MS);
+  $("error").hidden = true;
+  kpis(d);
+  if (window.Chart) {
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    dayChart(d);
+    battChart(d);
+    weekChart(d);
+  }
+  hasSnapshot = true;
+}
+
+async function loadSnapshot() {
+  if (document.hidden || loading) return;
+  loading = true;
   try {
     const r = await fetch("data.json?v=" + Math.floor(Date.now() / 60000), { cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer" });
     if (!r.ok) throw new Error("HTTP " + r.status);
-    const d = await r.json();
-    const ts = new Date(d.generated_at);
-    $("updated").textContent = "Last updated " + ts.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-    if (d.example) $("example").hidden = false;
-    else if (Date.now() - ts.getTime() > STALE_MS) $("stale").hidden = false;
-    kpis(d);
-    if (window.Chart) { Chart.defaults.font.family = getComputedStyle(document.body).fontFamily; dayChart(d); battChart(d); weekChart(d); }
+    showSnapshot(await r.json());
   } catch (e) {
+    if (hasSnapshot) return;
     $("updated").textContent = "No data";
     $("error").textContent = "Could not load the latest snapshot. Please try again later.";
     $("error").hidden = false;
+  } finally {
+    loading = false;
   }
 }
-main();
+
+document.addEventListener("visibilitychange", () => { if (!document.hidden) loadSnapshot(); });
+setInterval(loadSnapshot, REFRESH_MS);
+loadSnapshot();

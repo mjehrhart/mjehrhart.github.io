@@ -3,9 +3,10 @@
 A single-page, **anonymous** dashboard for a solar + Powerwall home. It shows solar production, battery charge,
 home consumption, and grid import/export, with charts for today and the last 7 days.
 It is a static site that reads one sanitized snapshot, `data.json`, which a scheduled GitHub Actions workflow refreshes.
+An open tab re-fetches that file every 5 minutes while it is visible, and again when you return to the tab.
 
 ```
-GitHub Actions (cron */30, best effort)
+GitHub Actions (cron 7,37 * * * *, best effort)
   -> refresh Tesla token -> IMMEDIATELY save rotated token (gh secret set, fine-grained PAT)
   -> live_status + calendar_history (kind=energy) -> ALLOWLIST sanitize + validate
   -> _site/ (public files only) -> upload-pages-artifact -> deploy-pages -> https://<user>.github.io/
@@ -32,7 +33,7 @@ The `<user>.github.io` URL itself contains your GitHub username. That is the onl
 | `callback/index.html` | static OAuth redirect landing page (no script; the code is copied from the address bar) |
 | `.well-known/appspecific/com.tesla.3p.public-key.pem` | Tesla public key. **Already in the repo. Keep your existing file; this folder ships without one.** |
 | `.nojekyll` | keep (harmless with Actions deploys; needed if you ever go back to branch deploys) |
-| `.github/workflows/refresh.yml` | refresh + deploy every 30 min, on push to `main`, and on manual run |
+| `.github/workflows/refresh.yml` | refresh + deploy at :07 and :37, on push to `main`, and on manual run |
 | `scripts/refresh.py` | the Actions fetcher (`token` and `fetch` sub-commands) |
 | `scripts/powerwall_core.py` | Fleet API calls + aggregation into the public shape |
 | `scripts/public_schema.py` | allowlist validator (keys, formats, value ranges, list sizes) |
@@ -113,7 +114,7 @@ The site keeps serving the last deployment until the first workflow run replaces
 ### 6. Push and run
 Push to `main`. That triggers a run, and you can also use **Actions → Refresh energy snapshot → Run workflow**.
 Check https://mjehrhart.github.io/: the "Example data" banner should be gone, with a current "Last updated" time.
-After that, runs are every ~30 min.
+After that, runs are at 7 and 37 minutes past each hour.
 
 ## How the workflow works / design notes
 - **Deploy method: `actions/deploy-pages` (no commits).** A push made with `GITHUB_TOKEN` does *not* trigger the classic
@@ -130,7 +131,8 @@ After that, runs are every ~30 min.
 - **Concurrency:** there is one group with `cancel-in-progress: false`, so runs queue instead of racing or being cancelled mid-rotation.
 - **Battery trail:** each run reads the currently deployed `data.json`, using it only if it passes the allowlist, so today's battery-% line carries forward.
 - **If Tesla is down,** the run fails and the site keeps its last snapshot. The page shows a **Stale** badge if the snapshot is more than 2 h old.
-- **Cron caveats:** GitHub schedules are best effort, so runs can be 5–30+ min late, or occasionally skipped at busy times.
+- **Open tabs** re-fetch `data.json` every 5 minutes while visible, and again when the tab becomes visible. Numbers, charts, and banners update in place. If a refresh fails, the last good snapshot stays on screen.
+- **Cron caveats:** GitHub schedules are best effort. Crons on the hour and half-hour are often delayed or dropped, so this workflow runs at 7 and 37 minutes past the hour. Runs can still be 5–30+ min late, or occasionally skipped at busy times.
   In public repos, scheduled workflows are **disabled after 60 days without repo activity**. Since data is no longer committed,
   re-enable the workflow from the Actions tab if GitHub emails you about it, or push any small change now and then.
 - **Cost:** public repos get free Actions minutes. Each run takes ~30 s. Fleet API usage at 48 runs/day × 3 calls fits Tesla's monthly credit.
