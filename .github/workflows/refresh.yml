@@ -6,7 +6,7 @@ name: Refresh energy snapshot
 
 on:
   schedule:
-    - cron: "*/30 * * * *"   # best effort: GitHub may delay or drop scheduled runs at busy times
+    - cron: "7,37 * * * *"   # best effort: GitHub may delay or drop scheduled runs at busy times
   workflow_dispatch:
   push:
     branches: [main]          # change if your default branch is named differently
