@@ -6,7 +6,7 @@ It is a static site that reads one sanitized snapshot, `data.json`, which a sche
 An open tab re-fetches that file every 5 minutes while it is visible, and again when you return to the tab.
 
 ```
-GitHub Actions (cron 7,37 * * * *, best effort)
+GitHub Actions (cron 11,41 * * * *, best effort)
   -> refresh Tesla token -> IMMEDIATELY save rotated token to the production environment (gh secret set --env production, fine-grained PAT)
   -> live_status + calendar_history (kind=energy) -> ALLOWLIST sanitize + validate
   -> _site/ (public files only) -> upload-pages-artifact -> deploy-pages -> https://<user>.github.io/
@@ -33,9 +33,9 @@ The `<user>.github.io` URL itself contains your GitHub username. That is the onl
 | `callback/index.html` | static OAuth redirect landing page (no script; the code is copied from the address bar) |
 | `.well-known/appspecific/com.tesla.3p.public-key.pem` | Tesla public key. **Already in the repo. Keep your existing file; this folder ships without one.** |
 | `.nojekyll` | keep (harmless with Actions deploys; needed if you ever go back to branch deploys) |
-| `.github/workflows/refresh.yml` | refresh + deploy at :07 and :37, on push to `main`, and on manual run |
+| `.github/workflows/refresh.yml` | refresh + deploy at :11 and :41, on push to `main`, and on manual run |
 | `scripts/refresh.py` | the Actions fetcher (`token` and `fetch` sub-commands) |
-| `scripts/actions_env_secrets.py` | copy missing Actions secrets into the `production` environment; save the rotated refresh token there |
+| `scripts/actions_env_secrets.py` | save the rotated refresh token to the `production` environment |
 | `scripts/powerwall_core.py` | Fleet API calls + aggregation into the public shape |
 | `scripts/public_schema.py` | allowlist validator (keys, formats, value ranges, list sizes) |
 | `scripts/partner_register.py`, `scripts/get_refresh_token.py` | one-time Tesla setup, run locally |
@@ -75,28 +75,33 @@ Your Tesla app's allowed origin and the registered partner domain must be the do
 GitHub → your avatar → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**:
 - Name: `pages-secret-rotation`. Expiration: up to 1 year (set a reminder to renew it).
 - Resource owner: you. **Repository access: Only select repositories → `mjehrhart.github.io`**.
-- **Repository permissions → Secrets: Read and write, and Environments: Read and write**. Leave everything else at No access (Metadata: read-only is added automatically). Environment secrets are a separate permission from repository secrets; the workflow needs both.
-- Generate the token, then store it without it touching your screen history: run `gh secret set GH_SECRETS_PAT --repo mjehrhart/mjehrhart.github.io`
-  and paste the token at the hidden prompt. Don't keep the token anywhere else.
+- **Repository permissions → Secrets: Read and write, and Environments: Read and write**. Leave everything else at No access (Metadata: read-only is added automatically). The workflow writes secrets only with `gh secret set --env production`; that needs both permissions.
+- Generate the token. Store it in the `production` environment in step 4. Don't keep the token anywhere else, and don't store it as a repository secret.
 
-### 4. Add the repository secrets
-UI: repo → **Settings → Secrets and variables → Actions → New repository secret**. Or use `gh` (log in with `gh auth login` first).
+### 4. Add the production environment secrets
+The build job reads secrets only from a GitHub Actions environment named `production`. Create that environment before the first run (**Settings → Environments**), limit **Deployment branches** to `main` only, and do not add required reviewers or a wait timer (either stalls the schedule before the job starts).
+
+Add every secret on that environment. Do not create repository-level Actions secrets: a workflow on any branch can read those. UI: **Settings → Environments → production → Add environment secret**. Or use `gh` (log in with `gh auth login` first).
 If you used the AWS setup, pipe the values straight from SSM so they never appear on screen or in shell history:
 ```
 R=mjehrhart/mjehrhart.github.io; P=/home-energy-dashboard
 get() { aws ssm get-parameter --name "$P/$1" --with-decryption --query Parameter.Value --output text; }
-get refresh_token  | gh secret set TESLA_REFRESH_TOKEN --repo "$R"
-get energy_site_id | gh secret set TESLA_SITE_ID       --repo "$R"
-get client_id      | gh secret set TESLA_CLIENT_ID     --repo "$R"
-get site_tz        | gh secret set TESLA_SITE_TZ       --repo "$R"
-get api_base       | gh secret set TESLA_API_BASE      --repo "$R"   # optional; defaults to North America
+get refresh_token  | gh secret set TESLA_REFRESH_TOKEN --repo "$R" --env production
+get energy_site_id | gh secret set TESLA_SITE_ID       --repo "$R" --env production
+get client_id      | gh secret set TESLA_CLIENT_ID     --repo "$R" --env production
+get site_tz        | gh secret set TESLA_SITE_TZ       --repo "$R" --env production
+get api_base       | gh secret set TESLA_API_BASE      --repo "$R" --env production   # optional; defaults to North America
 ```
 (`aws ... --output text` adds a trailing newline. The scripts strip it.)
-If you never used AWS, or the token has expired, get a fresh one locally; it goes straight into the repo secrets:
+Store the PAT the same way, pasting at the hidden prompt:
 ```
-python3 scripts/get_refresh_token.py --gh-repo mjehrhart/mjehrhart.github.io   # sets TESLA_REFRESH_TOKEN and TESLA_SITE_ID
-gh secret set TESLA_CLIENT_ID --repo mjehrhart/mjehrhart.github.io              # paste at the prompt
-gh secret set TESLA_SITE_TZ  --repo mjehrhart/mjehrhart.github.io              # IANA zone of the home, e.g. from your OS
+gh secret set GH_SECRETS_PAT --repo mjehrhart/mjehrhart.github.io --env production
+```
+If you never used AWS, or the token has expired, get a fresh one locally; it goes straight into the production environment:
+```
+python3 scripts/get_refresh_token.py --gh-repo mjehrhart/mjehrhart.github.io   # sets TESLA_REFRESH_TOKEN and TESLA_SITE_ID on production
+gh secret set TESLA_CLIENT_ID --repo mjehrhart/mjehrhart.github.io --env production   # paste at the prompt
+gh secret set TESLA_SITE_TZ  --repo mjehrhart/mjehrhart.github.io --env production   # IANA zone of the home, e.g. from your OS
 ```
 
 | Secret | Required | Value |
@@ -108,7 +113,7 @@ gh secret set TESLA_SITE_TZ  --repo mjehrhart/mjehrhart.github.io              #
 | `TESLA_API_BASE` | no | `https://fleet-api.prd.eu.vn.cloud.tesla.com` for EU; default NA |
 | `GH_SECRETS_PAT` | yes | the fine-grained PAT from step 3 |
 
-The build job runs in a GitHub Actions environment named `production`. Create that environment before the first run (**Settings → Environments**), limit **Deployment branches** to `main` only, and do not add required reviewers or a wait timer (either stalls the schedule before the job starts). The job reads an environment secret when that name exists, and otherwise the repository secret. After one successful run, check that `production` has every secret in the table (include `TESLA_API_BASE` only if you set it), then delete the repository-level copies. The PAT needs **Environments: Read and write** and **Secrets: Read and write**. The repository `TESLA_REFRESH_TOKEN` is the spent token after that first successful run; the production value is the one that matters, and it overrides the repository value.
+The PAT needs **Environments: Read and write** and **Secrets: Read and write**. After the secrets are in `production`, confirm **Settings → Secrets and variables → Actions → Repository secrets** is empty. Include `TESLA_API_BASE` only if you set it.
 
 ### 5. Switch Pages to Actions deploys
 Repo → **Settings → Pages → Build and deployment → Source: GitHub Actions**. (The old "Deploy from a branch" build stops.
@@ -117,7 +122,7 @@ The site keeps serving the last deployment until the first workflow run replaces
 ### 6. Push and run
 Push to `main`. That triggers a run, and you can also use **Actions → Refresh energy snapshot → Run workflow**.
 Check https://mjehrhart.github.io/: the "Example data" banner should be gone, with a current "Last updated" time.
-After that, runs are at 7 and 37 minutes past each hour.
+After that, runs are at 11 and 41 minutes past each hour.
 
 ## How the workflow works / design notes
 - **Deploy method: `actions/deploy-pages` (no commits).** A push made with `GITHUB_TOKEN` does *not* trigger the classic
@@ -126,16 +131,15 @@ After that, runs are at 7 and 37 minutes past each hour.
   a Pages artifact. That means no commit churn and no data in git history. Deploys are atomic. The PAT needs
   *Secrets* and *Environments* read-write, and nothing else.
   `include-hidden-files: true` is set so `.well-known/` is published.
-- **Token rotation:** missing static secrets are copied into `production` before the Tesla exchange, so a permissions error does not spend the refresh token. The spent refresh token is never copied. The exchange runs next, and the new token is written to the `production` environment with `gh secret set --env production` immediately, before any
-  data call. If that write fails, the job writes the repository secret, removes a production `TESLA_REFRESH_TOKEN` that would take precedence, and fails the run so the fallback is visible. If that repository write also fails, the rotated token was not stored. Fix the PAT soon: the previous token keeps working for
-  only about 24 h. If it lapses, rerun `get_refresh_token.py --gh-repo …` (it stores the repository secret and the production secret; the production value wins).
+- **Token rotation:** the exchange runs, and the new token is written to the `production` environment with `gh secret set --env production` immediately, before any
+  data call. That write is retried a few times with backoff. If it still fails, the rotated token was not stored and the run fails; nothing is written as a repository secret. The previous refresh token is spent and may keep working for only about 24 h. Re-authorize with `get_refresh_token.py --gh-repo …`, which writes only the production environment.
 - **Never in logs:** tokens are `::add-mask::`ed as soon as they exist and kept in mode-600 files under `$RUNNER_TEMP`, which are
   deleted at the end. The scripts print only counts and Tesla error codes. Secrets are passed only to the steps that need them.
 - **Concurrency:** there is one group with `cancel-in-progress: false`, so runs queue instead of racing or being cancelled mid-rotation.
 - **Battery trail:** each run reads the currently deployed `data.json`, using it only if it passes the allowlist, so today's battery-% line carries forward.
 - **If Tesla is down,** the run fails and the site keeps its last snapshot. The page shows a **Stale** badge if the snapshot is more than 2 h old.
 - **Open tabs** re-fetch `data.json` every 5 minutes while visible, and again when the tab becomes visible. Numbers, charts, and banners update in place. If a refresh fails, the last good snapshot stays on screen.
-- **Cron caveats:** GitHub schedules are best effort. Crons on the hour and half-hour are often delayed or dropped, so this workflow runs at 7 and 37 minutes past the hour. Runs can still be 5–30+ min late, or occasionally skipped at busy times.
+- **Cron caveats:** GitHub schedules are best effort. Crons on the hour and half-hour are often delayed or dropped, so this workflow runs at 11 and 41 minutes past the hour (moved from 7 and 37, which had never fired, so GitHub re-registers the schedule). Runs can still be 5–30+ min late, or occasionally skipped at busy times.
   In public repos, scheduled workflows are **disabled after 60 days without repo activity**. Since data is no longer committed,
   re-enable the workflow from the Actions tab if GitHub emails you about it, or push any small change now and then.
 - **Cost:** public repos get free Actions minutes. Each run takes ~30 s. Fleet API usage at 48 runs/day × 3 calls fits Tesla's monthly credit.
@@ -150,7 +154,7 @@ After that, runs are at 7 and 37 minutes past each hour.
    the address bar, is single-use, and expires within minutes.
 
 ## Revoking access
-Delete the repository secrets and the `production` environment secrets, and revoke the app at tesla.com/teslaaccount/account-settings (Third Party Apps), or rotate the client secret. Delete the PAT.
+Delete the `production` environment secrets, and revoke the app at tesla.com/teslaaccount/account-settings (Third Party Apps), or rotate the client secret. Delete the PAT. Do not recreate these values as repository secrets.
 
 ## Local checks
 ```

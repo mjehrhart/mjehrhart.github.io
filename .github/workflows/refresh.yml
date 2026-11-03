@@ -1,14 +1,15 @@
 # Refresh the anonymous energy snapshot and deploy the site to GitHub Pages.
 # Requires: Settings > Pages > Build and deployment > Source = "GitHub Actions".
-# The build job reads secrets from the production environment. A name that
-# environment does not have yet still resolves to the repository secret.
+# The build job reads secrets only from the production environment.
+# A name that environment does not have is unset. There is no repository-secret fallback.
 # TESLA_CLIENT_ID, TESLA_REFRESH_TOKEN, TESLA_SITE_ID, TESLA_SITE_TZ,
 # GH_SECRETS_PAT, TESLA_API_BASE (optional).
 name: Refresh energy snapshot
 
 on:
   schedule:
-    - cron: "7,37 * * * *"   # best effort: GitHub may delay or drop scheduled runs at busy times
+    # Shifted from 7,37 to 11,41 so GitHub re-registers the schedule; 7,37 had never fired.
+    - cron: "11,41 * * * *"   # best effort: GitHub may delay or drop scheduled runs at busy times
   workflow_dispatch:
   push:
     branches: [main]          # change if your default branch is named differently
@@ -29,7 +30,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # production should allow main only. Its secrets override repository secrets.
+    # production should allow main only. Secrets are stored only in this environment.
     environment: production
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,19 +41,6 @@ jobs:
       - name: Scan repository for secrets
         run: python3 scripts/scan_repo.py
 
-      # Before the Tesla exchange, so a PAT or environment error does not spend
-      # the refresh token. Does not copy TESLA_REFRESH_TOKEN (that value is
-      # about to be spent, and an environment copy would hide a repo fallback).
-      - name: Copy missing secrets into production
-        env:
-          GH_TOKEN: ${{ secrets.GH_SECRETS_PAT }}
-          TESLA_CLIENT_ID: ${{ secrets.TESLA_CLIENT_ID }}
-          TESLA_SITE_ID: ${{ secrets.TESLA_SITE_ID }}
-          TESLA_SITE_TZ: ${{ secrets.TESLA_SITE_TZ }}
-          TESLA_API_BASE: ${{ secrets.TESLA_API_BASE }}
-          GH_SECRETS_PAT: ${{ secrets.GH_SECRETS_PAT }}
-        run: python3 scripts/actions_env_secrets.py migrate
-
       - name: Refresh Tesla access token
         env:
           TESLA_CLIENT_ID: ${{ secrets.TESLA_CLIENT_ID }}
@@ -60,8 +48,9 @@ jobs:
         run: python3 scripts/refresh.py token --out-dir "$RUNNER_TEMP/tesla"
 
       # Must run right after the refresh: the old refresh token is now used up.
-      # Writes production (gh secret set --env production). If that fails, writes
-      # the repository secret and removes a production secret that would shadow it.
+      # Writes only the production environment (gh secret set --env production),
+      # retrying with backoff. If that still fails, the run fails: re-authorize
+      # with scripts/get_refresh_token.py. Never writes a repository secret.
       - name: Save rotated refresh token
         env:
           GH_TOKEN: ${{ secrets.GH_SECRETS_PAT }}
